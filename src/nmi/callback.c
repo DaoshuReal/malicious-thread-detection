@@ -1,5 +1,6 @@
 #include "mtdetect/nmi/callback.h"
 
+#include "mtdetect/lbr/lbr.h"
 #include "mtdetect/nmi/capture.h"
 #include "mtdetect/thread/thread.h"
 
@@ -39,6 +40,8 @@ static BOOLEAN mtdetect_nmi_callback(PVOID context, BOOLEAN handled)
       slot->tid = PsGetThreadId(thread);
       slot->start = first;
       slot->start2 = second;
+      mtdetect_lbr_capture(&slot->lbr_tos, slot->lbr_from, slot->lbr_to);
+      slot->lbr_valid = mtdetect_lbr_ready();
       slot->captured = TRUE;
     }
   }

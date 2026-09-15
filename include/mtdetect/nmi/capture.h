@@ -2,7 +2,9 @@
 
 #include <ntifs.h>
 
-/* One slot per cpu. NMI writes tid/start, tick reads them. */
+#include "mtdetect/lbr/lbr.h"
+
+/* One slot per cpu. NMI writes tid/start/lbr, tick reads them. */
 typedef struct {
   ULONG processor_index;
   volatile BOOLEAN captured;
@@ -15,6 +17,13 @@ typedef struct {
   HANDLE spoof_tid;
   PVOID spoof_start;
   PVOID spoof_start2;
+  BOOLEAN lbr_reported;
+  PVOID lbr_reported_from;
+  PVOID lbr_reported_to;
+  volatile BOOLEAN lbr_valid;
+  UCHAR lbr_tos;
+  PVOID lbr_from[MTDETECT_LBR_DEPTH];
+  PVOID lbr_to[MTDETECT_LBR_DEPTH];
   ULONG64 rip;
   ULONG64 rsp;
 } MtdetectNmiSlot;

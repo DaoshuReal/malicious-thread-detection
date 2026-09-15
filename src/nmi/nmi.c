@@ -3,6 +3,7 @@
 #include <ntifs.h>
 
 #include "mtdetect/detect/worker.h"
+#include "mtdetect/lbr/lbr.h"
 #include "mtdetect/nmi/callback.h"
 #include "mtdetect/nmi/capture.h"
 #include "mtdetect/nmi/send.h"
@@ -17,6 +18,7 @@ void mtdetect_nmi_init(void)
   mtdetect_thread_init();
   mtdetect_mm_init();
   mtdetect_worker_init();
+  mtdetect_lbr_init();
   mtdetect_nmi_send_init();
   mtdetect_nmi_trigger_init();
 

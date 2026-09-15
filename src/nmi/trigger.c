@@ -6,6 +6,7 @@
 #include "mtdetect/nmi/capture.h"
 #include "mtdetect/nmi/send.h"
 #include "mtdetect/detect/detect.h"
+#include "mtdetect/lbr/lbr.h"
 
 #define MTDETECT_NMI_PERIOD_MS 2000
 
@@ -29,8 +30,8 @@ static void mtdetect_nmi_trigger_dpc(PKDPC dpc, PVOID context, PVOID arg1, PVOID
 
   tick = InterlockedIncrement(&g_ticks);
 
-  DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "[mtdetect] nmi tick %d cpus=%lu hits=%d\n",
-      (int)tick, mtdetect_nmi_capture_count(), (int)mtdetect_nmi_callback_hits());
+  DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "[mtdetect] nmi tick %d cpus=%lu hits=%d lbr=%d\n",
+      (int)tick, mtdetect_nmi_capture_count(), (int)mtdetect_nmi_callback_hits(), mtdetect_lbr_status());
 }
 
 void mtdetect_nmi_trigger_init(void)

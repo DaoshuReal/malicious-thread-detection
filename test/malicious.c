@@ -6,6 +6,41 @@ static LONG g_off1 = -1;
 static LONG g_off2 = -1;
 static PVOID g_real1 = NULL;
 static PVOID g_real2 = NULL;
+static PUCHAR g_tramp = NULL;
+
+typedef ULONG (*MttestCpuFn)(ULONG);
+
+/* Pool spin, unknown to the module list by design. Spins here so the
+ * sampler lands in it, then the tail branch is FROM pool TO ntoskrnl. */
+static void mttest_tramp_init(void)
+{
+  ULONG64 target = 0;
+
+  g_tramp = (PUCHAR)ExAllocatePool2(POOL_FLAG_NON_PAGED_EXECUTE, 32, 'MRTT');
+
+  if (!g_tramp)
+  {
+    DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "[mttest] tramp alloc failed\n");
+
+    return;
+  }
+
+  target = (ULONG64)(PVOID)KeGetCurrentProcessorNumberEx;
+
+  /* mov rax, target; spin: dec rcx; jnz spin; jmp rax. */
+  g_tramp[0] = 0x48;
+  g_tramp[1] = 0xb8;
+  *(ULONG64*)(g_tramp + 2) = target;
+  g_tramp[10] = 0x48;
+  g_tramp[11] = 0xff;
+  g_tramp[12] = 0xc9;
+  g_tramp[13] = 0x75;
+  g_tramp[14] = 0xfb;
+  g_tramp[15] = 0xff;
+  g_tramp[16] = 0xe0;
+
+  DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "[mttest] tramp=%p target=%p\n", g_tramp, (PVOID)target);
+}
 
 /* Fake bad thread. Manually mapped, so no module entry. Loops on a
  * kernel call so the detector can spot it. */
@@ -21,8 +56,16 @@ static void mttest_thread(PVOID context)
   {
     ULONG cpu = 0;
 
-    /* Kernel call the detector looks for. */
-    cpu = KeGetCurrentProcessorNumberEx(NULL);
+    if (g_tramp)
+    {
+      /* Through the pool spin, sampler lands with FROM pool. */
+      cpu = ((MttestCpuFn)(PVOID)g_tramp)(100000UL);
+    }
+    else
+    {
+      /* Kernel call the detector looks for. */
+      cpu = KeGetCurrentProcessorNumberEx(NULL);
+    }
     (void)cpu;
 
     KeStallExecutionProcessor(100);
@@ -186,6 +229,7 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT driver, PUNICODE_STRING regpath)
   (void)driver;
 
   mttest_learn();
+  mttest_tramp_init();
 
   status = PsCreateSystemThread(&g_thread, THREAD_ALL_ACCESS, NULL, NULL, NULL, mttest_thread, NULL);
 
