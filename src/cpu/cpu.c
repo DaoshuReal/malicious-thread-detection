@@ -4,9 +4,7 @@
 
 static enum mtdetect_vendor_e g_vendor = MTDETECT_VENDOR_UNKNOWN;
 
-/*
- * CPUID leaf 0 returns the 12-byte vendor string in EBX, EDX, ECX.
- */
+/* Leaf 0 gives "GenuineIntel" / "AuthenticAMD" in EBX, EDX, ECX. */
 static enum mtdetect_vendor_e mtdetect_cpu_detect(void)
 {
   int regs[4] = {0, 0, 0, 0};

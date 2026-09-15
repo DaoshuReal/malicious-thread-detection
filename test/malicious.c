@@ -2,11 +2,8 @@
 
 static HANDLE g_thread = NULL;
 
-/*
- * Malicious thread: a system thread with no module entry once manually
- * mapped. it calls an ntoskrnl routine in a loop so the detector
- * sees from (mapped) -> to (ntoskrnl) in the lbr.
- */
+/* Fake bad thread. Once mapped it has no module entry. Loops on a
+ * kernel call so the detector can spot it. */
 static void mttest_thread(PVOID context)
 {
   ULONG calls = 0;
@@ -19,7 +16,7 @@ static void mttest_thread(PVOID context)
   {
     ULONG cpu = 0;
 
-    /* ntoskrnl call, the branch the lbr records. */
+    /* Kernel call the detector looks for. */
     cpu = KeGetCurrentProcessorNumberEx(NULL);
     (void)cpu;
 
