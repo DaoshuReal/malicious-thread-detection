@@ -1,5 +1,8 @@
 #include "mtdetect/nmi/callback.h"
 
+#include "mtdetect/nmi/capture.h"
+#include "mtdetect/thread/thread.h"
+
 static PVOID g_handle = NULL;
 static volatile LONG g_hits = 0;
 static volatile LONG g_pending = 0;
@@ -7,6 +10,9 @@ static volatile LONG g_pending = 0;
 /* Runs at NMI level, so keep it tiny. No prints here. */
 static BOOLEAN mtdetect_nmi_callback(PVOID context, BOOLEAN handled)
 {
+  PETHREAD thread = NULL;
+  MtdetectNmiSlot* slot = NULL;
+
   (void)context;
   (void)handled;
 
@@ -16,6 +22,21 @@ static BOOLEAN mtdetect_nmi_callback(PVOID context, BOOLEAN handled)
     InterlockedIncrement(&g_pending);
 
     return FALSE;
+  }
+
+  /* Just field reads, fine up here. User threads never count. */
+  thread = PsGetCurrentThread();
+
+  if (PsIsSystemThread(thread))
+  {
+    slot = mtdetect_nmi_capture_slot(KeGetCurrentProcessorIndex());
+
+    if (slot)
+    {
+      slot->tid = PsGetThreadId(thread);
+      slot->start = mtdetect_thread_start(thread);
+      slot->captured = TRUE;
+    }
   }
 
   InterlockedIncrement(&g_hits);

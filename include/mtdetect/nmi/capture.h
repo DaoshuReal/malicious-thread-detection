@@ -2,10 +2,14 @@
 
 #include <ntifs.h>
 
-/* One slot per cpu. Filled in later once NMIs fire. */
+/* One slot per cpu. NMI writes tid/start, tick reads them. */
 typedef struct {
   ULONG processor_index;
-  BOOLEAN captured;
+  volatile BOOLEAN captured;
+  volatile HANDLE tid;
+  volatile PVOID start;
+  BOOLEAN reported;
+  PVOID reported_start;
   ULONG64 rip;
   ULONG64 rsp;
 } MtdetectNmiSlot;

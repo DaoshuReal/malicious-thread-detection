@@ -5,6 +5,7 @@
 #include "mtdetect/nmi/callback.h"
 #include "mtdetect/nmi/capture.h"
 #include "mtdetect/nmi/send.h"
+#include "mtdetect/detect/detect.h"
 
 #define MTDETECT_NMI_PERIOD_MS 2000
 
@@ -22,6 +23,7 @@ static void mtdetect_nmi_trigger_dpc(PKDPC dpc, PVOID context, PVOID arg1, PVOID
   (void)arg1;
   (void)arg2;
 
+  mtdetect_detect_scan();
   mtdetect_nmi_callback_arm(mtdetect_nmi_capture_count());
   mtdetect_nmi_send_all();
 
