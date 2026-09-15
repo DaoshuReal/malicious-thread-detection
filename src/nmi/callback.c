@@ -12,6 +12,8 @@ static BOOLEAN mtdetect_nmi_callback(PVOID context, BOOLEAN handled)
 {
   PETHREAD thread = NULL;
   MtdetectNmiSlot* slot = NULL;
+  PVOID first = NULL;
+  PVOID second = NULL;
 
   (void)context;
   (void)handled;
@@ -33,8 +35,10 @@ static BOOLEAN mtdetect_nmi_callback(PVOID context, BOOLEAN handled)
 
     if (slot)
     {
+      mtdetect_thread_starts(thread, &first, &second);
       slot->tid = PsGetThreadId(thread);
-      slot->start = mtdetect_thread_start(thread);
+      slot->start = first;
+      slot->start2 = second;
       slot->captured = TRUE;
     }
   }

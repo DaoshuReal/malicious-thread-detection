@@ -8,8 +8,13 @@ typedef struct {
   volatile BOOLEAN captured;
   volatile HANDLE tid;
   volatile PVOID start;
+  volatile PVOID start2;
   BOOLEAN reported;
   PVOID reported_start;
+  BOOLEAN spoof_reported;
+  HANDLE spoof_tid;
+  PVOID spoof_start;
+  PVOID spoof_start2;
   ULONG64 rip;
   ULONG64 rsp;
 } MtdetectNmiSlot;

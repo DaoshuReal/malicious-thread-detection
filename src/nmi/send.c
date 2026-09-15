@@ -1,5 +1,7 @@
 #include "mtdetect/nmi/send.h"
 
+#include <ntifs.h>
+
 #include "mtdetect/cpu/msr.h"
 
 #define MTDETECT_APIC_BASE_MSR 0x1b

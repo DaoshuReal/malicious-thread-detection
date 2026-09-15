@@ -1,6 +1,7 @@
 #include "mtdetect/mm/mm.h"
 
 #include <aux_klib.h>
+#include <ntifs.h>
 
 #define MTDETECT_MM_POOL_TAG 'MMDT'
 
@@ -9,17 +10,30 @@ typedef struct {
   SIZE_T size;
 } MtdetectMmEntry;
 
-static MtdetectMmEntry* g_entries = NULL;
-static ULONG g_mod_count = 0;
+static MtdetectMmEntry* g_mm_entries = NULL;
+static ULONG g_mm_mod_count = 0;
+static KSPIN_LOCK g_mm_lock;
+static BOOLEAN g_mm_ready = FALSE;
 
-/* Passive only. Redo when drivers load later. */
-static void mtdetect_mm_refresh(void)
+void mtdetect_mm_refresh(void)
 {
   ULONG bytes = 0;
   AUX_MODULE_EXTENDED_INFO* info = NULL;
   MtdetectMmEntry* entries = NULL;
   ULONG modules = 0;
   ULONG index = 0;
+  MtdetectMmEntry* old = NULL;
+  KIRQL old_irql = PASSIVE_LEVEL;
+
+  if (KeGetCurrentIrql() != PASSIVE_LEVEL)
+  {
+    return;
+  }
+
+  if (!g_mm_ready)
+  {
+    return;
+  }
 
   if (!NT_SUCCESS(AuxKlibQueryModuleInformation(&bytes, sizeof(*info), NULL)) || bytes == 0)
   {
@@ -61,19 +75,24 @@ static void mtdetect_mm_refresh(void)
 
   ExFreePool(info);
 
-  if (g_entries)
+  KeAcquireSpinLock(&g_mm_lock, &old_irql);
+  old = g_mm_entries;
+  g_mm_entries = entries;
+  g_mm_mod_count = modules;
+  KeReleaseSpinLock(&g_mm_lock, old_irql);
+
+  if (old)
   {
-    ExFreePool(g_entries);
+    ExFreePool(old);
   }
 
-  g_entries = entries;
-  g_mod_count = modules;
-
-  DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "[mtdetect] mm ready mods=%lu\n", g_mod_count);
+  DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "[mtdetect] mm ready mods=%lu\n", modules);
 }
 
 void mtdetect_mm_init(void)
 {
+  KeInitializeSpinLock(&g_mm_lock);
+  g_mm_ready = TRUE;
   AuxKlibInitialize();
   mtdetect_mm_refresh();
 }
@@ -81,20 +100,50 @@ void mtdetect_mm_init(void)
 BOOLEAN mtdetect_mm_known(PVOID addr)
 {
   ULONG index = 0;
+  BOOLEAN known = FALSE;
+  BOOLEAN at_dpc = FALSE;
+  KIRQL old_irql = PASSIVE_LEVEL;
 
   if (!addr)
   {
     return TRUE;
   }
 
-  for (index = 0; index < g_mod_count; index++)
+  if (KeGetCurrentIrql() > DISPATCH_LEVEL)
   {
-    if (addr >= g_entries[index].base &&
-        addr < (PVOID)((PUCHAR)g_entries[index].base + g_entries[index].size))
+    return TRUE;
+  }
+
+  at_dpc = (KeGetCurrentIrql() == DISPATCH_LEVEL);
+
+  if (at_dpc)
+  {
+    KeAcquireSpinLockAtDpcLevel(&g_mm_lock);
+  }
+  else
+  {
+    KeAcquireSpinLock(&g_mm_lock, &old_irql);
+  }
+
+  for (index = 0; index < g_mm_mod_count; index++)
+  {
+    if (addr >= g_mm_entries[index].base &&
+        addr < (PVOID)((PUCHAR)g_mm_entries[index].base + g_mm_entries[index].size))
     {
-      return TRUE;
+      known = TRUE;
+
+      break;
     }
   }
 
-  return FALSE;
+  if (at_dpc)
+  {
+    KeReleaseSpinLockFromDpcLevel(&g_mm_lock);
+  }
+  else
+  {
+    KeReleaseSpinLock(&g_mm_lock, old_irql);
+  }
+
+  return known;
 }
