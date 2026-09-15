@@ -15,7 +15,7 @@ static void mttest_thread(PVOID context)
 
   DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "[mttest] thread running\n");
 
-  while (true)
+  for (;;)
   {
     ULONG cpu = 0;
 
